@@ -29,13 +29,16 @@ function App() {
         body: JSON.stringify({ text: trimmedMessage }),
       });
 
-      if (!response.ok) throw new Error("Network response was not ok");
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server error: ${response.status} - ${errorText}`);
+      }
 
       const data = await response.json();
       setResult(data);
     } catch (error) {
       console.error("Error fetching explanation:", error);
-      setResult({ error: "Failed to fetch explanation. Please try again." });
+      setResult({ error: `Failed to fetch explanation: ${error.message}` });
     }
 
     setLoading(false);
@@ -117,10 +120,7 @@ function App() {
 
             <ResponsiveContainer width="100%" height={300}>
               <BarChart
-                data={result.top_contributing_words.map(([word, score]) => ({
-                  word,
-                  score,
-                }))}
+                data={result.top_contributing_words}
                 margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
