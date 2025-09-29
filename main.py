@@ -3,7 +3,7 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -38,7 +38,6 @@ def explain_prediction(text: str) -> dict:
     vector = tfidf.transform([processed])
     prediction = model.predict(vector)[0]
 
-    # Feature contributions
     spam_probs = model.feature_log_prob_[1]  # class 1 (spam)
     ham_probs = model.feature_log_prob_[0]   # class 0 (ham)
     contributions = dict(zip(tfidf.get_feature_names_out(), spam_probs - ham_probs))
@@ -58,16 +57,20 @@ app = FastAPI(title="Spam-Ham Detection API")
 # Allow CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # optional in production if frontend served by FastAPI
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Serve React frontend
-app.mount("/", StaticFiles(directory="frontend/build", html=True), name="frontend")
+# Serve React frontend if build exists
+frontend_path = "frontend/build"
+if os.path.isdir(frontend_path):
+    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
+else:
+    print(f"Warning: {frontend_path} not found. Frontend will not be served.")
 
-# ------------------ Ping endpoint for uptime ------------------
+# ------------------ Ping endpoint ------------------
 @app.get("/ping")
 def ping():
     return {"status": "alive"}
@@ -80,23 +83,27 @@ class Message(BaseModel):
 @app.post("/predict")
 def predict_spam(message: Message):
     if not message.text.strip():
-        return {"error": "Message text is empty."}
-
-    processed = preprocess_text(message.text)
-    vector = tfidf.transform([processed])
-    prediction = model.predict(vector)[0]
-    return {"prediction": int(prediction), "label": "spam" if prediction == 1 else "ham"}
+        raise HTTPException(status_code=400, detail="Message text is empty.")
+    try:
+        processed = preprocess_text(message.text)
+        vector = tfidf.transform([processed])
+        prediction = model.predict(vector)[0]
+        return {"prediction": int(prediction), "label": "spam" if prediction == 1 else "ham"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/explain")
 def explain_spam(message: Message):
     if not message.text.strip():
-        return {"error": "Message text is empty."}
-
-    result = explain_prediction(message.text)
-    result["label"] = "spam" if result["prediction"] == 1 else "ham"
-    return result
+        raise HTTPException(status_code=400, detail="Message text is empty.")
+    try:
+        result = explain_prediction(message.text)
+        result["label"] = "spam" if result["prediction"] == 1 else "ham"
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ------------------ Run server ------------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))  # dynamic port for Render
+    port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)

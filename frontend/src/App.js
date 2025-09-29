@@ -16,24 +16,26 @@ function App() {
 
   const handleExplain = async (e) => {
     e.preventDefault();
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) return;
+
     setLoading(true);
     setResult(null);
 
     try {
-      // ✅ Use relative URL so it works in production and dev
       const response = await fetch("/explain", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text: message }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: trimmedMessage }),
       });
+
+      if (!response.ok) throw new Error("Network response was not ok");
 
       const data = await response.json();
       setResult(data);
     } catch (error) {
       console.error("Error fetching explanation:", error);
-      setResult({ error: "Failed to fetch explanation." });
+      setResult({ error: "Failed to fetch explanation. Please try again." });
     }
 
     setLoading(false);
@@ -79,6 +81,7 @@ function App() {
           />
           <button
             type="submit"
+            disabled={loading}
             style={{
               marginTop: "15px",
               width: "100%",
@@ -86,7 +89,7 @@ function App() {
               fontSize: "16px",
               borderRadius: "8px",
               border: "none",
-              cursor: "pointer",
+              cursor: loading ? "not-allowed" : "pointer",
               backgroundColor: "#007bff",
               color: "white",
               fontWeight: "bold",
