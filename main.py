@@ -4,9 +4,11 @@ from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
 from fastapi import FastAPI
-from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 import uvicorn
+import os
 
 # ------------------ NLTK downloads ------------------
 nltk.download("punkt")
@@ -53,20 +55,28 @@ def explain_prediction(text: str) -> dict:
 # ------------------ FastAPI setup ------------------
 app = FastAPI(title="Spam-Ham Detection API")
 
-# Allow React frontend to access API
+# Allow CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # or ["http://localhost:3000"] for stricter security
+    allow_origins=["*"],  # optional in production if frontend served by FastAPI
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Serve React frontend
+app.mount("/", StaticFiles(directory="frontend/build", html=True), name="frontend")
+
+# ------------------ Ping endpoint for uptime ------------------
+@app.get("/ping")
+def ping():
+    return {"status": "alive"}
+
 # ------------------ Pydantic model ------------------
 class Message(BaseModel):
     text: str
 
-# ------------------ Endpoints ------------------
+# ------------------ API Endpoints ------------------
 @app.post("/predict")
 def predict_spam(message: Message):
     if not message.text.strip():
@@ -88,4 +98,5 @@ def explain_spam(message: Message):
 
 # ------------------ Run server ------------------
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8000))  # dynamic port for Render
+    uvicorn.run(app, host="0.0.0.0", port=port)
