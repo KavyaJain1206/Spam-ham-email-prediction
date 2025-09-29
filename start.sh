@@ -1,12 +1,14 @@
 #!/bin/bash
+set -e  # stop if any command fails
 
-# Start backend (FastAPI)
-uvicorn main:app --host 0.0.0.0 --port 8000 &
+# Upgrade pip and install Python dependencies
+pip install --upgrade pip
+pip install -r requirements.txt
 
-# Wait 5 seconds for backend to start
-sleep 5
-
-# Start frontend
-cd frontend
-npm install
-npm start
+# Build frontend if folder exists
+if [ -d "frontend" ]; then
+    cd frontend
+    npm install
+    npm run build  # produces build/ folder
+    cd ..
+fi
