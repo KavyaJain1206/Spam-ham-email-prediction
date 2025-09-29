@@ -14,6 +14,7 @@ import sys
 # ------------------ NLTK downloads ------------------
 try:
     nltk.download("punkt", quiet=True)
+    nltk.download("punkt_tab", quiet=True)  # ADD THIS LINE
     nltk.download("stopwords", quiet=True)
 except Exception as e:
     print(f"NLTK download error: {e}")
